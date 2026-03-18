@@ -1,0 +1,30 @@
+---
+- name: 基礎基礎設施配置
+  hosts: martinlee_lab_vm
+  become: yes  # 相當於 --become，使用 sudo 權限
+  vars:
+    # 如果你不想手動輸入密碼，可以在這裡暫時定義，或執行時加 -K
+    # ansible_become_password: "你的密碼"
+
+  tasks:
+    - name: 1. 測試連線 (Ping)
+      ansible.builtin.ping:
+
+    - name: 2. 更新 apt 快取並升級所有套件
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: dist
+        cache_valid_time: 3600  # 一小時內更新過就不重複更新
+
+    - name: 3. 安裝常用的工具軟體
+      ansible.builtin.apt:
+        name:
+          - curl
+          - git
+          - vim
+          - htop
+        state: present
+
+    - name: 4. 清除不需要的相依套件 (Autoremove)
+      ansible.builtin.apt:
+        autoremove: yes
