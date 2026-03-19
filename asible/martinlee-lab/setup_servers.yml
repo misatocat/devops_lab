@@ -26,7 +26,7 @@
           - net-tools
           - iperf3
           - tmux
-          - 
+
         state: present
 
     - name: 4. 清除不需要的相依套件 (Autoremove)
