@@ -1,38 +1,38 @@
 ---
-- name: 強化 SSH 安全性（使用 Key 登入並停用密碼）
+- name: 建立使用者、部署公鑰並強化 SSH 安全性
   hosts: martinlee_lab_vm
   become: yes
 
   vars:
-    # 你之前提供的特定公鑰字串
+    # 這是你提供的 MacBook 公鑰
     mac_public_key: "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDOZY6UYBDpm53U6bWAjz8GC6C2BMBAlVLFrHC+Qi6WNBNrzojXSE+F7kj4MiH6GCoowhm6mll9KrRCY7gI7q4UgzsLdBw9GiA+e0t9IgOhSLp8JCHj0oZuj6ZRBieavj49zfY5tkA41UDFJxr+gwwQBt/DRKz6DZxY6z7iUAJ1rN4PDEaOSiNl0GncGU6Q9nrqM7NTPqRfP+rxMomIk14tAe2kyEnhSGsTPaBkt8y5DTU88I7b3hzEVN0AFhtSS7Rgri0r1ZbjYNdizgHYBygeENPcAST1CTmk6RFDyrxpcY/CM4SSH51qfZF6Jpoh4k518yW9mgyrEr27RARkBkW3OhzNUJc8xFftu1c9bpYTIrJ7XDbDL6nCB1Tpp5kKns0Cfq9oDzv+yBBWS+/XY2EzJstBSOXbY+kaJm6vMGjQ8iVQ9o6Hrr1jqX8vWbfPIJowpBdEr1Lrm7yChQv0iP6LLvRVyI1hw+HjEWUHR+A74h0X4bkGCO0i1ptZceYB40uqysaYLN7R8pVpAF3U8vsfOYpRulXjJGIvJziQxwv4muYaldnLFBAq4tOK5wMkfeMbNkvsl2Q7m/cYBtP0Knw2wKIvPj1Gz+PKTAxzfP6giF7aODDDzCbvNBLowybqAWkNCl6iAw7gy7vy+iHqiTnGzC68Tm6VSP2efYXcd4NkHQ== martinlee@KKBOXdeMacBook-Pro.local"
 
   tasks:
-    - name: 1. 確保受控端主機已放入控制節點的公鑰
-      ansible.posix.authorized_key:
-        user: kkman
-        state: present
-        key: "{{ lookup('file', '~/.ssh/id_ed25519.pub') }}"
-        # 註：如果你的金鑰是 rsa，請改為 id_rsa.pub
-
-    - name: 建立使用者 martinlee
+    - name: 1. 建立使用者 martinlee
       ansible.builtin.user:
         name: martinlee
         shell: /bin/bash
         groups: sudo
         append: yes
+        create_home: yes
 
-    - name: 部署公鑰給指定使用者
+    - name: 2. 部署公鑰給 kkman 與 martinlee
       ansible.posix.authorized_key:
         user: "{{ item }}"
         state: present
         key: "{{ mac_public_key }}"
-      with_items:
+      loop:
         - kkman
         - martinlee
 
+    - name: 3. 配置 martinlee 免密碼 sudo (關鍵步驟)
+      ansible.builtin.copy:
+        content: "martinlee ALL=(ALL) NOPASSWD:ALL"
+        dest: /etc/sudoers.d/martinlee
+        mode: '0440'
+        validate: 'visudo -cf %s'
 
-    - name: 2. 停用 SSH 密碼登入
+    - name: 4. 停用 SSH 密碼登入
       ansible.builtin.lineinfile:
         path: /etc/ssh/sshd_config
         regexp: '^#?PasswordAuthentication'
@@ -40,11 +40,11 @@
         state: present
       notify: 重啟 SSH 服務
 
-    - name: 3. 停用 Root 遠端登入 (選用，建議開啟以增加安全性)
+    - name: 5. 停用 Root 遠端密碼登入
       ansible.builtin.lineinfile:
         path: /etc/ssh/sshd_config
         regexp: '^#?PermitRootLogin'
-        line: 'PermitRootLogin no'
+        line: 'PermitRootLogin prohibit-password'
         state: present
       notify: 重啟 SSH 服務
 
