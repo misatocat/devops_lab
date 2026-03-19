@@ -1,0 +1,43 @@
+---
+# 第一個 Play：在所有叢集節點上安裝基礎依賴套件
+- name: 在 Ubuntu 叢集上部署 K3s
+  hosts: martinlee_lab_vm  # 目標主機群組（所有 VM）
+  become: yes              # 使用 sudo 執行
+  tasks:
+    - name: 1. 下載並安裝 K3s 基礎環境 (所有節點)
+      ansible.builtin.apt:
+        name: [curl, ca-certificates]  # 安裝 curl（用於下載 K3s）與 ca-certificates（SSL 憑證）
+        state: present                 # 確保套件已安裝
+
+# 第二個 Play：設定 Master 節點並取得 Join Token
+- name: 配置 K3s Master 節點
+  hosts: k3s_master  # 目標：Master 節點主機群組
+  become: yes        # 使用 sudo 執行
+  tasks:
+    - name: 安裝 K3s Server
+      ansible.builtin.shell: |
+        curl -sfL https://get.k3s.io | sh -  # 從官方腳本安裝 K3s Server
+      args:
+        creates: /usr/local/bin/k3s  # 如果已安裝則跳過
+
+    - name: 取得 K3s Join Token
+      ansible.builtin.slurp:
+        src: /var/lib/rancher/k3s/server/node-token  # 讀取 K3s 產生的 Node Token 檔案
+      register: node_token_base64  # 將讀取結果（Base64 編碼）存入變數
+
+    - name: 設定 Token 變數
+      set_fact:
+        k3s_token: "{{ node_token_base64['content'] | b64decode | trim }}"  # 將 Base64 解碼並去除換行，存為 Fact 供後續 Play 使用
+
+# 第三個 Play：設定 Worker 節點並加入叢集
+- name: 配置 K3s Worker 節點
+  hosts: k3s_node  # 目標：Worker 節點主機群組
+  become: yes      # 使用 sudo 執行
+  tasks:
+    - name: 加入 K3s 叢集
+      ansible.builtin.shell: |
+        curl -sfL https://get.k3s.io | K3S_URL=https://10.1.104.10:6443 K3S_TOKEN={{ hostvars['10.1.104.10']['k3s_token'] }} sh -
+        # K3S_URL：指定 Master API Server 位址（port 6443）
+        # K3S_TOKEN：從 Master 節點取得的 Join Token
+      args:
+        creates: /etc/systemd/system/k3s-agent.service  # 如果 Agent 服務已存在則跳過，避免重複加入
