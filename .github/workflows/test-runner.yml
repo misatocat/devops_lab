@@ -1,0 +1,22 @@
+name: Test Self-hosted Runner
+
+# 觸發條件：push 到 main branch 時執行
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    # 指定跑在我們的 k3s self-hosted runner 上
+    runs-on: [self-hosted, k3s]
+
+    steps:
+      - name: 確認 runner 環境
+        run: |
+          echo "Runner 主機名稱: $(hostname)"
+          echo "作業系統: $(uname -a)"
+          echo "目前使用者: $(whoami)"
+
+      - name: 確認 kubectl 可以連到 K3s
+        run: kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml get nodes
