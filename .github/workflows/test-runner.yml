@@ -18,5 +18,5 @@ jobs:
           echo "作業系統: $(uname -a)"
           echo "目前使用者: $(whoami)"
 
-      - name: 確認 kubectl 可以連到 K3s
-        run: kubectl --kubeconfig /etc/rancher/k3s/k3s.yaml get nodes
+      - name: 確認網路連線
+        run: curl -s https://github.com > /dev/null && echo "GitHub 連線正常"
