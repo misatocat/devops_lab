@@ -1,0 +1,5 @@
+# 複製此檔案為 terraform.tfvars 並填入實際值
+# cp terraform.tfvars.example terraform.tfvars
+
+postgres_password  = "your-postgres-password"
+n8n_encryption_key = "your-random-32-char-encryption-key"
