@@ -48,7 +48,7 @@ resource "kubernetes_deployment" "github_runner" {
       spec {
         container {
           name  = "runner"
-          image = "myoung34/github-runner:latest"  # 社群維護的 runner image，支援 K8s 環境
+          image = "ghcr.io/misatocat/github-runner-kubectl:latest"  # 自訂 image，基於 myoung34/github-runner 加裝 kubectl
 
           # 指定要監聽哪個 GitHub repo 的 job
           env {

@@ -1,0 +1,35 @@
+name: Build Runner Image
+
+# 當 Dockerfile 有變動時，自動重新 build
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docker/runner/Dockerfile'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest  # 這個 job 用 GitHub 提供的 runner 來 build image
+
+    permissions:
+      contents: read
+      packages: write  # 允許推送到 ghcr.io
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: 登入 GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}  # 自動產生，不需要另外設定
+
+      - name: Build & Push image
+        uses: docker/build-push-action@v5
+        with:
+          context: docker/runner
+          push: true
+          tags: ghcr.io/misatocat/github-runner-kubectl:latest
