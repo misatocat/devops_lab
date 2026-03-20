@@ -142,6 +142,63 @@ terraform/k3s/services/argocd/
 
 ---
 
+## 確認 Traefik 對應狀況
+
+### 查看 Ingress 規則
+
+```bash
+kubectl --context default get ingress -A
+```
+
+預期輸出：
+```
+NAMESPACE   NAME             CLASS    HOSTS                  ADDRESS                               PORTS   AGE
+argocd      argocd-ingress   <none>   argocd.martinlee.lab   10.1.104.10,10.1.104.11,10.1.104.12   80      7m
+```
+
+- **HOSTS**：對應的 domain
+- **ADDRESS**：三台 VM 都在接收流量
+- **PORTS**：對外暴露的 port
+
+---
+
+### 查看 Traefik Service
+
+```bash
+kubectl --context default get svc -n kube-system | grep traefik
+```
+
+預期輸出：
+```
+traefik   LoadBalancer   10.43.82.86   10.1.104.10,10.1.104.11,10.1.104.12   80:32020/TCP,443:30159/TCP
+```
+
+- `80` → HTTP（node port 32020）
+- `443` → HTTPS（node port 30159）
+
+---
+
+### Traefik Dashboard（詳細流量對應）
+
+透過 port-forward 在本機開啟 Traefik Dashboard：
+
+```bash
+kubectl --context default port-forward svc/traefik -n kube-system 9000:9000
+```
+
+開啟瀏覽器：
+
+```
+http://localhost:9000/dashboard/
+```
+
+Dashboard 可以看到：
+- 所有 Router（domain 對應規則）
+- 所有 Service（後端服務）
+- 流量狀態
+
+---
+
 ## 清除資源
 
 ```bash
