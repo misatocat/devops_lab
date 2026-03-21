@@ -148,53 +148,135 @@ resource "kubernetes_service" "postgresql" {
 
 # ===================== n8n =====================
 
-# 部署 n8n（使用社群 Helm chart）
-resource "helm_release" "n8n" {
-  name       = "n8n"
-  namespace  = "staging"
-  repository = "https://8gears.container-registry.com/chartrepo/library"
-  chart      = "n8n"
-  version    = "0.25.2"
+# 儲存 n8n 加密金鑰為 Kubernetes Secret
+resource "kubernetes_secret" "n8n" {
+  metadata {
+    name      = "n8n-secret"
+    namespace = "staging"
+  }
+  data = {
+    encryption_key    = var.n8n_encryption_key
+    postgres_password = var.postgres_password
+  }
+}
 
-  # 資料庫連線設定
-  set {
-    name  = "db.type"
-    value = "postgresdb"
-  }
-  set {
-    name  = "db.postgresdb.host"
-    value = "postgresql.staging.svc.cluster.local"  # K8s 內部 DNS
-  }
-  set {
-    name  = "db.postgresdb.port"
-    value = "5432"
-  }
-  set {
-    name  = "db.postgresdb.database"
-    value = "n8n"
-  }
-  set {
-    name  = "db.postgresdb.user"
-    value = "n8n"
-  }
-  set {
-    name  = "db.postgresdb.password"
-    value = var.postgres_password
+# 部署 n8n（使用官方 n8nio/n8n image）
+resource "kubernetes_deployment" "n8n" {
+  metadata {
+    name      = "n8n"
+    namespace = "staging"
+    labels = {
+      app = "n8n"
+    }
   }
 
-  # n8n 加密金鑰（用來保護 workflow credentials）
-  set {
-    name  = "n8n.encryption_key"
-    value = var.n8n_encryption_key
-  }
+  spec {
+    replicas = 1
 
-  # 對外存取的 URL
-  set {
-    name  = "n8n.webhookUrl"
-    value = "http://n8n.martinlee.lab"
+    selector {
+      match_labels = {
+        app = "n8n"
+      }
+    }
+
+    template {
+      metadata {
+        labels = {
+          app = "n8n"
+        }
+      }
+
+      spec {
+        container {
+          name  = "n8n"
+          image = "n8nio/n8n:latest"
+
+          port {
+            container_port = 5678
+          }
+
+          # 資料庫連線設定
+          env {
+            name  = "DB_TYPE"
+            value = "postgresdb"
+          }
+          env {
+            name  = "DB_POSTGRESDB_HOST"
+            value = "postgresql.staging.svc.cluster.local"
+          }
+          env {
+            name  = "DB_POSTGRESDB_PORT"
+            value = "5432"
+          }
+          env {
+            name  = "DB_POSTGRESDB_DATABASE"
+            value = "n8n"
+          }
+          env {
+            name  = "DB_POSTGRESDB_USER"
+            value = "n8n"
+          }
+          env {
+            name = "DB_POSTGRESDB_PASSWORD"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.n8n.metadata[0].name
+                key  = "postgres_password"
+              }
+            }
+          }
+
+          # n8n 加密金鑰（用來保護 workflow credentials）
+          env {
+            name = "N8N_ENCRYPTION_KEY"
+            value_from {
+              secret_key_ref {
+                name = kubernetes_secret.n8n.metadata[0].name
+                key  = "encryption_key"
+              }
+            }
+          }
+
+          # 對外存取的 URL
+          env {
+            name  = "WEBHOOK_URL"
+            value = "http://n8n-staging.martinlee.lab"
+          }
+
+          resources {
+            requests = {
+              cpu    = "100m"
+              memory = "256Mi"
+            }
+            limits = {
+              cpu    = "500m"
+              memory = "512Mi"
+            }
+          }
+        }
+      }
+    }
   }
 
   depends_on = [kubernetes_stateful_set.postgresql]  # 確保 PostgreSQL 先啟動
+}
+
+# n8n Service（讓 Ingress 可以連到 n8n）
+resource "kubernetes_service" "n8n" {
+  metadata {
+    name      = "n8n"
+    namespace = "staging"
+  }
+
+  spec {
+    selector = {
+      app = "n8n"
+    }
+    port {
+      port        = 5678
+      target_port = 5678
+    }
+  }
 }
 
 # ===================== Ingress =====================
@@ -211,7 +293,7 @@ resource "kubernetes_ingress_v1" "n8n" {
 
   spec {
     rule {
-      host = "n8n.martinlee.lab"
+      host = "n8n-staging.martinlee.lab"
 
       http {
         path {
@@ -231,5 +313,5 @@ resource "kubernetes_ingress_v1" "n8n" {
     }
   }
 
-  depends_on = [helm_release.n8n]
+  depends_on = [kubernetes_deployment.n8n]
 }

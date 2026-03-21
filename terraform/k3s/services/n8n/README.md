@@ -12,7 +12,7 @@
 | n8n Helm Chart | 8gears library 0.25.2 |
 | PostgreSQL Image | postgres:16-alpine |
 | Master 節點 IP | 10.1.104.10 |
-| 存取 Domain | n8n.martinlee.lab |
+| 存取 Domain | n8n-staging.martinlee.lab |
 | Namespace | staging |
 | Ingress Controller | Traefik（K3s 內建） |
 
@@ -23,7 +23,7 @@
 ```
 瀏覽器
   │
-  │  http://n8n.martinlee.lab
+  │  http://n8n-staging.martinlee.lab
   ▼
 Traefik（Ingress Controller，K3s 內建）
   │
@@ -170,7 +170,7 @@ kubectl --context default get ingress -n staging
 因為是本地測試環境，需要手動將 domain 指向 Master 節點 IP：
 
 ```bash
-sudo sh -c 'echo "10.1.104.10  n8n.martinlee.lab" >> /etc/hosts'
+sudo sh -c 'echo "10.1.104.10  n8n-staging.martinlee.lab" >> /etc/hosts'
 ```
 
 ---
@@ -180,7 +180,7 @@ sudo sh -c 'echo "10.1.104.10  n8n.martinlee.lab" >> /etc/hosts'
 開啟瀏覽器：
 
 ```
-http://n8n.martinlee.lab
+http://n8n-staging.martinlee.lab
 ```
 
 首次進入會引導建立管理員帳號。
